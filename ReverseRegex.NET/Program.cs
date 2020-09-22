@@ -86,13 +86,14 @@ namespace ReverseRegex
                 new HashSet<int>()
             );
             var rng = new Random();
-            string response;
+            ConsoleKeyInfo response;
             do
             {
                 Console.WriteLine($"Sample: {parsed.GenerateSample(rng)}");
                 Console.Write("Generate another? (y/n) ");
-                response = Console.ReadLine().ToLower().Trim();
-            } while (response == "y" || response == "yes");
+                response = Console.ReadKey();
+                Console.WriteLine();
+            } while (response.KeyChar == 'y');
         }
 
         private static IRegexNode Parse(RegexParseState state, ISet<int> ends)

@@ -1,5 +1,4 @@
 ﻿using ReverseRegex.Extensions;
-using ReverseRegex.NET.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
