@@ -6,6 +6,6 @@ namespace ReverseRegex
 {
     public interface IRegexNode
     {
-        public string GenerateSample();
+        public string GenerateSample(Random rng);
     }
 }
