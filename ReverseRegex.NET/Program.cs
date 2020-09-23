@@ -175,24 +175,66 @@ namespace ReverseRegex
                     return new StringNode(state.ReadOctal(3), state);
                 case 'o':
                     {
-                        if (!state.MoveNext() || state.Char != '{')
+                        int value;
+                        using (var _ = state.BeginMatch('{', '}'))
                         {
-                            throw new Exception(@"Octal escapes using \o must be followed by a '{' character");
-                        }
-
-                        if(!state.MoveNext())
-                        {
-                            throw new Exception(@"Octal escapes using \o{} must be contain octal digits");
-                        }
-                        int value = state.ReadOctal(int.MaxValue);
-
-                        if(!state.MoveNext() || state.Char != '}')
-                        {
-                            throw new Exception(@"Octal escapes using \o{} must be contain only octal digits and end with a '}' character");
+                            if(!state.MoveNext())
+                            {
+                                throw new Exception(@"Empty \o{} escapes are invalid");
+                            }
+                            value = state.ReadOctal(int.MaxValue);
                         }
 
                         return new StringNode(value, state);
                     }
+                case 'x':
+                    {
+                        if (!state.TryPeekNext(out int c))
+                        {
+                            return new StringNode(0, state);
+                        }
+
+                        if(c == '{')
+                        {
+                            int value;
+                            using (state.BeginMatch('{', '}'))
+                            {
+                                if (!state.MoveNext())
+                                {
+                                    throw new Exception(@"Empty \x{} escapes are invalid");
+                                }
+                                value = state.ReadHex(int.MaxValue);
+                            }
+
+                            return new StringNode(value, state);
+                        }
+                        else
+                        {
+                            state.MoveNext(); // Guaranteed to succeed thanks to the TryPeekNext earlier
+                            return new StringNode(state.ReadHex(2), state);
+                        }
+                    }
+                case 'N':
+                    {
+                        int value;
+                        using (state.BeginMatch("{U+".ToCodePoints(), '}'))
+                        {
+                            if (!state.MoveNext() || !state.Char.IsHexDigit())
+                            {
+                                throw new InvalidOperationException(@"Escape code \N{U+...} must contain 1 or more hex digits");
+                            }
+
+                            value = state.ReadHex(int.MaxValue);
+                        }
+
+                        return new StringNode(value, state);
+                    }
+                case 'b':
+                    if(inCharacterClass)
+                    {
+                        return new StringNode('\b', state);
+                    }
+                    break;
                 default:
                     if(state.Char.IsAsciiDigit())
                     {
@@ -231,8 +273,10 @@ namespace ReverseRegex
                             }
                         }
                     }
-                    throw new Exception($"Invalid escape character {state.Char.CodePointAsString()}");
+                    break;
             }
+
+            throw new Exception($"Invalid escape character {state.Char.CodePointAsString()}");
         }
 
         private static IRegexNode ParseLiteral(RegexParseState state)

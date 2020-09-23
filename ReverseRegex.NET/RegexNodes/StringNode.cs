@@ -30,6 +30,7 @@ namespace ReverseRegex.NET.RegexNodes
                 return Chars.CodePointsToString();
             }
 
+            // TODO: Proper support for unicode casing, inclusing multiple characters potentially converting to a single character
             var builder = new StringBuilder(Chars.Count);
             foreach (int c in Chars)
             {

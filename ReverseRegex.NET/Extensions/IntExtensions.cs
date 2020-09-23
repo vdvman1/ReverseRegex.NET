@@ -11,5 +11,10 @@ namespace ReverseRegex.Extensions
         public static bool IsOctalDigit(this int c) => '0' <= c && c <= '7';
 
         public static bool IsAsciiDigit(this int c) => '0' <= c && c <= '9';
+
+        public static bool IsHexDigit(this int c) =>
+               ('0' <= c && c <= '9')
+            || ('a' <= c && c <= 'f')
+            || ('A' <= c && c <= 'F');
     }
 }
