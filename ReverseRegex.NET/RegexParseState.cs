@@ -45,18 +45,50 @@ namespace ReverseRegex
             return false;
         }
 
-        public int ReadOctal(int maxLength)
+        public bool MoveNextIf(ISet<int> chars, bool include)
+        {
+            if(TryPeekNext(out int c) && chars.Contains(c) == include)
+            {
+                MoveNext();
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool MoveNextIf(int ch, bool include)
+        {
+            if (TryPeekNext(out int c) && (ch == c) == include)
+            {
+                MoveNext();
+                return true;
+            }
+
+            return false;
+        }
+
+        public int ReadOctalEscape(int minLength, int maxLength)
         {
             if(!Char.IsOctalDigit())
             {
+                if(minLength > 0)
+                {
+                    throw new RegexParseException("Expected octal digit", Index, Regex);
+                }
                 return 0;
             }
 
             int value = Char - '0';
-            for (int i = 1; i < maxLength && TryPeekNext(out int c) && c.IsOctalDigit(); i++)
+            int i = 1;
+            for (; i < maxLength && TryPeekNext(out int c) && c.IsOctalDigit(); i++)
             {
                 MoveNext();
                 value = value << 3 | (c - '0');
+            }
+
+            if(i < minLength)
+            {
+                throw new RegexParseException("Expected octal digit", Index, Regex);
             }
 
             ValidateEscape(value);
@@ -64,18 +96,28 @@ namespace ReverseRegex
             return value;
         }
 
-        public int ReadHex(int maxLength)
+        public int ReadHexEscape(int minLength, int maxLength)
         {
             if(!Char.IsHexDigit())
             {
+                if (minLength > 0)
+                {
+                    throw new RegexParseException("Expected hex digit", Index, Regex);
+                }
                 return 0;
             }
 
             int value = Char - '0';
-            for (int i = 1; i < maxLength && TryPeekNext(out int c) && c.IsHexDigit(); i++)
+            int i = 1;
+            for (; i < maxLength && TryPeekNext(out int c) && c.IsHexDigit(); i++)
             {
                 MoveNext();
                 value = value << 4 | (c - '0');
+            }
+
+            if (i < minLength)
+            {
+                throw new RegexParseException("Expected hex digit", Index, Regex);
             }
 
             ValidateEscape(value);
@@ -87,14 +129,41 @@ namespace ReverseRegex
         {
             if (value > 0x10ffff)
             {
-                throw new Exception($"Value {value} is not valid unicode");
+                throw new RegexParseException($"Value {value} is not valid unicode", Index, Regex);
             }
 
             // TODO: Investigate whether we need an option to allow surrogate escapes
             if (0xd800 <= value && value <= 0xdfff)
             {
-                throw new Exception("Surrogate escapes are not allowed");
+                throw new RegexParseException($"Surrogate escapes are not allowed", Index, Regex);
             }
+        }
+
+        public int ReadAsciiNumber(int minLength, int maxLength)
+        {
+            if (!Char.IsAsciiDigit())
+            {
+                if (minLength > 0)
+                {
+                    throw new RegexParseException("Expected decimal digit", Index, Regex);
+                }
+                return 0;
+            }
+
+            int value = Char - '0';
+            int i = 1;
+            for (; i < maxLength && TryPeekNext(out int c) && c.IsAsciiDigit(); i++)
+            {
+                MoveNext();
+                value = value * 10 + (c - '0');
+            }
+
+            if (i < minLength)
+            {
+                throw new RegexParseException("Expected decimal digit", Index, Regex);
+            }
+
+            return value;
         }
 
         public ISnapshot Snapshot() => new SnapshotImpl(this);
@@ -103,8 +172,19 @@ namespace ReverseRegex
         {
             if (!MoveNext() || Char != c)
             {
-                // TODO: Better parse error messages
-                throw new Exception("Parse requirement not met");
+                throw new RegexParseException($"Expected character {c.CodePointAsPrintingString()}", Index, Regex);
+            }
+        }
+
+        public void RequireRange(int start, int end)
+        {
+            if(!MoveNext())
+            {
+                throw new RegexParseException($"Expected character in the range {start.CodePointAsPrintingString()} - {end.CodePointAsPrintingString()}", Index, Regex);
+            }
+            if (Char < start || Char > end)
+            {
+                throw new RegexParseException($"Character not in the required range {start.CodePointAsPrintingString()} - {end.CodePointAsPrintingString()}", Index, Regex);
             }
         }
 
@@ -123,6 +203,7 @@ namespace ReverseRegex
         public IDisposable BeginMatch(IEnumerable<int> start, IEnumerable<int> end)
         {
             Require(start);
+            // TODO: Improve error message of what was expected, e.g. parsing hex surrounded by {} currently says only '}' expected if the hex stopped early
             return new EndRequirement(end, this);
         }
 
@@ -168,14 +249,7 @@ namespace ReverseRegex
                 if(!disposed && Marshal.GetExceptionPointers() == IntPtr.Zero)
                 {
                     disposed = true;
-                    foreach (var c in Ending)
-                    {
-                        if(!State.MoveNext() || State.Char != c)
-                        {
-                            // TODO: Better parse error messages
-                            throw new Exception("Sub-Parse ending requirement not met");
-                        }
-                    }
+                    State.Require(Ending);
                 }
             }
         }

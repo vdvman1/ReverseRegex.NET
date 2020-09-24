@@ -109,7 +109,7 @@ namespace ReverseRegex
                 }
             }
 
-            while (state.MoveNext() && !ends.Contains(state.Char))
+            while (state.MoveNextIf(ends, false))
             {
                 switch (state.Char)
                 {
@@ -140,7 +140,7 @@ namespace ReverseRegex
                 throw new Exception("Expected a character that is being escaped");
             }
 
-            if (!char.IsLetterOrDigit(state.Char.CodePointAsString(), 0))
+            if (!state.Char.IsLetterOrDigit())
             {
                 return new StringNode(state.Char, state);
             }
@@ -153,10 +153,7 @@ namespace ReverseRegex
                     return new StringNode('\a', state);
                 case 'c':
                     {
-                        if (!state.MoveNext() || state.Char < ' ' || state.Char > '~')
-                        {
-                            throw new Exception("Expected printable ascii character");
-                        }
+                        state.RequireRange(' ', '~');
                         // Convert lowercase to upper case, and invert bit 6. See \cx in the pcre docs: http://www.rexegg.com/pcre-doc/_latestpcre2/pcre2pattern.html#SEC5
                         var ctrlC = state.Char.CodePointAsString().ToUpper().ToCodePoints()[0] ^ (1 << 6);
                         return new StringNode(ctrlC, state);
@@ -172,17 +169,17 @@ namespace ReverseRegex
                 case 't':
                     return new StringNode('\t', state);
                 case '0':
-                    return new StringNode(state.ReadOctal(3), state);
+                    return new StringNode(state.ReadOctalEscape(0, 3), state);
                 case 'o':
                     {
                         int value;
-                        using (var _ = state.BeginMatch('{', '}'))
+                        using (state.BeginMatch('{', '}'))
                         {
                             if(!state.MoveNext())
                             {
                                 throw new Exception(@"Empty \o{} escapes are invalid");
                             }
-                            value = state.ReadOctal(int.MaxValue);
+                            value = state.ReadOctalEscape(1, int.MaxValue);
                         }
 
                         return new StringNode(value, state);
@@ -203,7 +200,7 @@ namespace ReverseRegex
                                 {
                                     throw new Exception(@"Empty \x{} escapes are invalid");
                                 }
-                                value = state.ReadHex(int.MaxValue);
+                                value = state.ReadHexEscape(1, int.MaxValue);
                             }
 
                             return new StringNode(value, state);
@@ -211,7 +208,7 @@ namespace ReverseRegex
                         else
                         {
                             state.MoveNext(); // Guaranteed to succeed thanks to the TryPeekNext earlier
-                            return new StringNode(state.ReadHex(2), state);
+                            return new StringNode(state.ReadHexEscape(0, 2), state);
                         }
                     }
                 case 'N':
@@ -224,7 +221,7 @@ namespace ReverseRegex
                                 throw new InvalidOperationException(@"Escape code \N{U+...} must contain 1 or more hex digits");
                             }
 
-                            value = state.ReadHex(int.MaxValue);
+                            value = state.ReadHexEscape(1, int.MaxValue);
                         }
 
                         return new StringNode(value, state);
@@ -240,24 +237,19 @@ namespace ReverseRegex
                     {
                         if (inCharacterClass)
                         {
-                            if(state.Char > '7')
+                            if(state.Char == '8' || state.Char == '9')
                             {
                                 return new StringNode(state.Char, state);
                             }
 
-                            return new StringNode(state.ReadOctal(3), state);
+                            return new StringNode(state.ReadOctalEscape(1, 3), state);
                         }
                         else
                         {
                             var snapshot = state.Snapshot();
 
                             int firstDigit = state.Char - '0';
-                            var value = firstDigit;
-                            while (state.TryPeekNext(out int c) && c.IsAsciiDigit())
-                            {
-                                state.MoveNext();
-                                value = value * 10 + (c - '0');
-                            }
+                            int value = state.ReadAsciiNumber(1, int.MaxValue);
 
                             if (value < 10 || firstDigit > 7 || value < state.CapturesCount /* case of trying to reference capture 0 is implicitly handled by the specific handling of \0xx above */)
                             {
@@ -269,7 +261,7 @@ namespace ReverseRegex
                                 // Octal
                                 snapshot.Restore();
 
-                                return new StringNode(state.ReadOctal(3), state);
+                                return new StringNode(state.ReadOctalEscape(1, 3), state);
                             }
                         }
                     }
@@ -284,9 +276,8 @@ namespace ReverseRegex
             var chars = new List<int>();
             while(state.MoveNext())
             {
-                if(state.Char == '\\' && state.TryPeekNext(out int nextC) && nextC == 'E')
+                if(state.Char == '\\' && state.MoveNextIf('E', true))
                 {
-                    state.MoveNext();
                     break;
                 }
 
