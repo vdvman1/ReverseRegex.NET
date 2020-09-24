@@ -78,13 +78,26 @@ namespace ReverseRegex
             }
 
             int[] regex = regexStr.Normalize().ToCodePoints();
-            var parsed = Parse(
-                new RegexParseState(regex)
-                {
-                    CaseSensitive = caseSensitive
-                },
-                new HashSet<int>()
-            );
+            IRegexNode parsed;
+            try
+            {
+                parsed = Parse(
+                    new RegexParseState(regex)
+                    {
+                        CaseSensitive = caseSensitive
+                    }
+                );
+            }
+            catch (RegexParseException e)
+            {
+                e.Print();
+                return;
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
+                return;
+            }
             var rng = new Random();
             ConsoleKeyInfo response;
             do
@@ -96,7 +109,18 @@ namespace ReverseRegex
             } while (response.KeyChar == 'y');
         }
 
-        private static IRegexNode Parse(RegexParseState state, ISet<int> ends)
+        private static IRegexNode Parse(RegexParseState state)
+        {
+            // TODO: Alternation
+            IRegexNode node = ParseSequence(state, new HashSet<int> { '|' });
+            if(state.HasNext)
+            {
+                throw new NotImplementedException("Alternation has not been implemented");
+            }
+            return node;
+        }
+
+        private static IRegexNode ParseSequence(RegexParseState state, ISet<int> ends)
         {
             var nodes = new List<IRegexNode>();
             var str = new List<int>();
@@ -117,6 +141,21 @@ namespace ReverseRegex
                         nextNode();
                         nodes.Add(ParseEscape(state, inCharacterClass: false));
                         break;
+                    case '^':
+                        throw new NotImplementedException("Start of string/line assertion has not been implemented");
+                    case '$':
+                        throw new NotImplementedException("End of string/line assertion has not been implemented");
+                    case '.':
+                        throw new NotImplementedException("Dot matching has not been implemented");
+                    case '[':
+                        throw new NotImplementedException("Character classes have not been implemented");
+                    case '(':
+                        throw new NotImplementedException("Groups/control verbs have not been implemented");
+                    case '*':
+                    case '+':
+                    case '?':
+                    case '{':
+                        throw new NotImplementedException("Quantifiers have not been implemented");
                     default:
                         str.Add(state.Char);
                         break;
@@ -213,25 +252,73 @@ namespace ReverseRegex
                     }
                 case 'N':
                     {
-                        int value;
-                        using (state.BeginMatch("{U+".ToCodePoints(), '}'))
+                        if (state.TryPeekNext(out int c) && c == '{')
                         {
-                            if (!state.MoveNext() || !state.Char.IsHexDigit())
+                            int value;
+                            using (state.BeginMatch("{U+".ToCodePoints(), '}'))
                             {
-                                throw new InvalidOperationException(@"Escape code \N{U+...} must contain 1 or more hex digits");
+                                if (!state.MoveNext() || !state.Char.IsHexDigit())
+                                {
+                                    throw new InvalidOperationException(@"Escape code \N{U+...} must contain 1 or more hex digits");
+                                }
+
+                                value = state.ReadHexEscape(1, int.MaxValue);
                             }
 
-                            value = state.ReadHexEscape(1, int.MaxValue);
+                            return new StringNode(value, state);
                         }
-
-                        return new StringNode(value, state);
+                        else
+                        {
+                            throw new NotImplementedException("Character classes have not been implemented");
+                        }
                     }
                 case 'b':
                     if(inCharacterClass)
                     {
                         return new StringNode('\b', state);
                     }
+                    else
+                    {
+                        throw new NotImplementedException("Assertions have not been implemented");
+                    }
+                case 'g':
+                    throw new NotImplementedException("Back/forward references have not been implemented");
+                case 'd':
+                case 'D':
+                case 'h':
+                case 'H':
+                case 's':
+                case 'S':
+                case 'v':
+                case 'V':
+                case 'w':
+                case 'W':
+                case 'C':
+                    throw new NotImplementedException("Character classes have not been implemented");
+                case 'R':
+                    if(inCharacterClass)
+                    {
+                        throw new NotImplementedException("Character classes have not been implemented");
+                    }
                     break;
+                case 'p':
+                case 'P':
+                    throw new NotImplementedException("Unicode properties have not been implemented");
+                case 'X':
+                    throw new NotImplementedException("Unicode extended grapheme clusters have not been implemented");
+                case 'B':
+                case 'A':
+                case 'Z':
+                case 'z':
+                case 'G':
+                    if (inCharacterClass)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        throw new NotImplementedException("Assertions have not been implemented");
+                    }
                 default:
                     if(state.Char.IsAsciiDigit())
                     {

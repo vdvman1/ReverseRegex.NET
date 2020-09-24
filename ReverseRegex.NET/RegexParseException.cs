@@ -27,7 +27,7 @@ namespace ReverseRegex
                 spaces++;
             }
 
-            Console.WriteLine($@"{ExpectedMessage}
+            Console.Error.WriteLine($@"{ExpectedMessage}
 {Regex}
 {new string(' ', spaces)}^");
         }

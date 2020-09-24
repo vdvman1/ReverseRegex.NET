@@ -23,7 +23,7 @@ namespace ReverseRegex
 
         public bool TryPeekNext(out int c)
         {
-            if(Index + 1 < Regex.Length)
+            if(HasNext)
             {
                 c = Regex[Index + 1];
                 return true;
@@ -44,6 +44,8 @@ namespace ReverseRegex
             Index = Regex.Length - 1;
             return false;
         }
+
+        public bool HasNext => Index + 1 < Regex.Length;
 
         public bool MoveNextIf(ISet<int> chars, bool include)
         {
