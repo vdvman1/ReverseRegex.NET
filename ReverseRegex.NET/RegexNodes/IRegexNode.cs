@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ReverseRegex
 {
-    public interface IRegexNode
+    internal interface IRegexNode
     {
         public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng);
     }

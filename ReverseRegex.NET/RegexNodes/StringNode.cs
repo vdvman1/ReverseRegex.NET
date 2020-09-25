@@ -6,9 +6,9 @@ using System.Text;
 
 namespace ReverseRegex.RegexNodes
 {
-    public class StringNode : IRegexNode
+    internal class StringNode : IRegexNode
     {
-        public readonly IReadOnlyList<int> Chars;
+        private readonly IReadOnlyList<int> Chars;
         private readonly bool CaseSensitive;
 
         public StringNode(IEnumerable<int> value, RegexParseState state)

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace ReverseRegex.RegexNodes
 {
-    public class SequenceNode : IRegexNode
+    internal class SequenceNode : IRegexNode
     {
         private readonly List<IRegexNode> Nodes;
 

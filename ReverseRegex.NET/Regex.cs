@@ -8,7 +8,7 @@ namespace ReverseRegex
 {
     public class Regex
     {
-        public readonly IRegexNode RootNode;
+        private readonly IRegexNode RootNode;
         private Regex(IRegexNode node) => RootNode = node;
 
         public string GenerateSample(Random rng)
