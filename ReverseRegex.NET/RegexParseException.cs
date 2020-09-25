@@ -20,9 +20,27 @@ namespace ReverseRegex
 
         public void Print()
         {
+            int spaces;
+            if(ConsoleHelper.SupportsCombining)
+            {
+                int[] textElements = StringInfo.ParseCombiningCharacters(Regex.CodePointsToString());
+                spaces = 0;
+                while (spaces + 1 < textElements.Length && Index > textElements[spaces] && Index > textElements[spaces + 1])
+                {
+                    spaces++;
+                }
+                if(spaces + 1 < textElements.Length && textElements[spaces + 1] == Index)
+                {
+                    spaces++;
+                }
+            }
+            else
+            {
+                spaces = Index;
+            }
             Console.Error.WriteLine($@"{ExpectedMessage}
 {Regex.CodePointsToString()}
-{new string(' ', Index)}^");
+{new string(' ', spaces)}^");
         }
     }
 }
