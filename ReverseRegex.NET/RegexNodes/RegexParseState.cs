@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace ReverseRegex
+namespace ReverseRegex.RegexNodes
 {
-    public class RegexParseState
+    internal class RegexParseState
     {
         private readonly int[] Regex;
         private int Index = -1;
@@ -24,7 +24,7 @@ namespace ReverseRegex
 
         public bool TryPeekNext(out int c)
         {
-            if(HasNext)
+            if (HasNext)
             {
                 c = Regex[Index + 1];
                 return true;
@@ -37,7 +37,7 @@ namespace ReverseRegex
         public bool MoveNext()
         {
             Index++;
-            if(Index < Regex.Length)
+            if (Index < Regex.Length)
             {
                 return true;
             }
@@ -50,7 +50,7 @@ namespace ReverseRegex
 
         public bool MoveNextIf(ISet<int> chars, bool include)
         {
-            if(TryPeekNext(out int c) && chars.Contains(c) == include)
+            if (TryPeekNext(out int c) && chars.Contains(c) == include)
             {
                 MoveNext();
                 return true;
@@ -61,7 +61,7 @@ namespace ReverseRegex
 
         public bool MoveNextIf(int ch, bool include)
         {
-            if (TryPeekNext(out int c) && (ch == c) == include)
+            if (TryPeekNext(out int c) && ch == c == include)
             {
                 MoveNext();
                 return true;
@@ -72,9 +72,9 @@ namespace ReverseRegex
 
         public int ReadOctalEscape(int minLength, int maxLength)
         {
-            if(!Char.IsOctalDigit())
+            if (!Char.IsOctalDigit())
             {
-                if(minLength > 0)
+                if (minLength > 0)
                 {
                     throw new RegexParseException("Expected octal digit", Index, Regex);
                 }
@@ -86,10 +86,10 @@ namespace ReverseRegex
             for (; i < maxLength && TryPeekNext(out int c) && c.IsOctalDigit(); i++)
             {
                 MoveNext();
-                value = value << 3 | (c - '0');
+                value = value << 3 | c - '0';
             }
 
-            if(i < minLength)
+            if (i < minLength)
             {
                 throw new RegexParseException("Expected octal digit", Index, Regex);
             }
@@ -101,7 +101,7 @@ namespace ReverseRegex
 
         public int ReadHexEscape(int minLength, int maxLength)
         {
-            if(!Char.IsHexDigit())
+            if (!Char.IsHexDigit())
             {
                 if (minLength > 0)
                 {
@@ -115,7 +115,7 @@ namespace ReverseRegex
             for (; i < maxLength && TryPeekNext(out int c) && c.IsHexDigit(); i++)
             {
                 MoveNext();
-                value = value << 4 | (c - '0');
+                value = value << 4 | c - '0';
             }
 
             if (i < minLength)
@@ -181,7 +181,7 @@ namespace ReverseRegex
 
         public void RequireRange(int start, int end)
         {
-            if(!MoveNext())
+            if (!MoveNext())
             {
                 throw new RegexParseException($"Expected character in the range {start.CodePointAsPrintingString()} - {end.CodePointAsPrintingString()}", Index, Regex);
             }
@@ -249,7 +249,7 @@ namespace ReverseRegex
 
             public void Dispose()
             {
-                if(!disposed && Marshal.GetExceptionPointers() == IntPtr.Zero)
+                if (!disposed && Marshal.GetExceptionPointers() == IntPtr.Zero)
                 {
                     disposed = true;
                     State.Require(Ending);

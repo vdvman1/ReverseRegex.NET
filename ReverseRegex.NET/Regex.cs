@@ -1,4 +1,5 @@
 ﻿using ReverseRegex.Extensions;
+using ReverseRegex.NET.RegexNodes;
 using ReverseRegex.RegexNodes;
 using System;
 using System.Collections.Generic;
@@ -33,17 +34,30 @@ namespace ReverseRegex
 
         #region Parsing the regex
         public static Regex Build(string regexStr, RegexOptions options)
-            => new Regex(ParseRoot(new RegexParseState(regexStr.Normalize().ToCodePoints(), options)));
+            => new Regex(ParseAlternatives(new RegexParseState(regexStr.Normalize().ToCodePoints(), options)));
 
-        private static IRegexNode ParseRoot(RegexParseState state)
+        private static IRegexNode ParseAlternatives(RegexParseState state)
         {
-            // TODO: Alternation
-            IRegexNode node = ParseSequence(state, new HashSet<int> { '|' });
-            if (state.HasNext)
+            var alternatives = new List<IRegexNode>();
+            do
             {
-                throw new NotImplementedException("Alternation has not been implemented");
-            }
-            return node;
+                alternatives.Add(ParseSequence(state, new HashSet<int> { '|' }));
+                if(state.HasNext)
+                {
+                    state.Require('|');
+                }
+                else
+                {
+                    break;
+                }
+            } while (true);
+
+            return alternatives.Count switch
+            {
+                0 => new EmptyNode(),
+                1 => alternatives[0],
+                _ => new AlternatesNode(alternatives)
+            };
         }
 
         private static IRegexNode ParseSequence(RegexParseState state, ISet<int> ends)

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ReverseRegex
+namespace ReverseRegex.RegexNodes
 {
     internal interface IRegexNode
     {
