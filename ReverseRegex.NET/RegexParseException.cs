@@ -10,26 +10,19 @@ namespace ReverseRegex
     {
         public readonly string ExpectedMessage;
         public readonly int Index;
-        public readonly string Regex;
+        public readonly IEnumerable<int> Regex;
         public RegexParseException(string msg, int index, IEnumerable<int> regex) : base($"{msg} at normalised index {index}")
         {
             ExpectedMessage = msg;
             Index = index;
-            Regex = regex.CodePointsToString();
+            Regex = regex;
         }
 
         public void Print()
         {
-            int[] textElements = StringInfo.ParseCombiningCharacters(Regex);
-            int spaces = 0;
-            while(spaces + 1 < textElements.Length && Index > textElements[spaces] && Index > textElements[spaces + 1])
-            {
-                spaces++;
-            }
-
             Console.Error.WriteLine($@"{ExpectedMessage}
-{Regex}
-{new string(' ', spaces)}^");
+{Regex.CodePointsToString()}
+{new string(' ', Index)}^");
         }
     }
 }

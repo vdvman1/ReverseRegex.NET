@@ -13,6 +13,7 @@ namespace ReverseRegex
     {
         static void Main(string[] args)
         {
+            Console.InputEncoding = Console.OutputEncoding = Encoding.Unicode;
             string? regexStr = null;
             bool caseSensitive = true;
             for (int i = 0; i < args.Length; i++)
