@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace ReverseRegex.NET.RegexNodes
+namespace ReverseRegex.RegexNodes
 {
     public class StringNode : IRegexNode
     {
@@ -23,21 +23,12 @@ namespace ReverseRegex.NET.RegexNodes
             CaseSensitive = state.CaseSensitive;
         }
 
-        public string GenerateSample(Random rng)
+        public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng)
         {
-            if(CaseSensitive)
+            foreach (var c in Chars)
             {
-                return Chars.CodePointsToString();
+                yield return (c, CaseSensitive);
             }
-
-            // TODO: Proper support for unicode casing, inclusing multiple characters potentially converting to a single character
-            var builder = new StringBuilder(Chars.Count);
-            foreach (int c in Chars)
-            {
-                var str = c.CodePointAsString();
-                builder.Append(rng.NextBool() ? str.ToUpper() : str.ToLower());
-            }
-            return builder.ToString();
         }
     }
 }

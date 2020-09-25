@@ -12,9 +12,10 @@ namespace ReverseRegex
         private int Index = -1;
         public bool CaseSensitive = true;
 
-        public RegexParseState(int[] regex)
+        public RegexParseState(int[] regex, RegexOptions options)
         {
             Regex = regex;
+            CaseSensitive = options.CaseSensitive;
         }
 
         public int Char => Regex[Index];

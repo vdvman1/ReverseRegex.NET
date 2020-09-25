@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace ReverseRegex.NET.RegexNodes
+namespace ReverseRegex.RegexNodes
 {
     public class SequenceNode : IRegexNode
     {
@@ -11,6 +11,6 @@ namespace ReverseRegex.NET.RegexNodes
 
         public SequenceNode(IEnumerable<IRegexNode> nodes) => Nodes = nodes.ToList();
 
-        public string GenerateSample(Random rng) => string.Join("", Nodes.Select(n => n.GenerateSample(rng)));
+        public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng) => Nodes.SelectMany(n => n.GenerateSample(rng));
     }
 }
