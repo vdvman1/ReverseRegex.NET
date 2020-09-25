@@ -9,8 +9,17 @@ namespace ReverseRegex.RegexNodes
     {
         private readonly List<IRegexNode> Nodes;
 
-        public SequenceNode(IEnumerable<IRegexNode> nodes) => Nodes = nodes.ToList();
+        private SequenceNode(IEnumerable<IRegexNode> nodes) => Nodes = nodes.ToList();
+
+        public static IRegexNode From(IList<IRegexNode> nodes) => nodes.Count switch
+        {
+            0 => new EmptyNode(),
+            1 => nodes[0],
+            _ => new SequenceNode(nodes)
+        };
 
         public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng) => Nodes.SelectMany(n => n.GenerateSample(rng));
+
+        public bool AllowsRepetition => false;
     }
 }

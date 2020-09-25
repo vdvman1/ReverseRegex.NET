@@ -10,5 +10,7 @@ namespace ReverseRegex.RegexNodes
         {
             yield break;
         }
+
+        public bool AllowsRepetition => false;
     }
 }

@@ -7,5 +7,7 @@ namespace ReverseRegex.RegexNodes
     internal interface IRegexNode
     {
         public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng);
+
+        public bool AllowsRepetition { get; }
     }
 }

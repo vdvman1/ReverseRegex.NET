@@ -12,6 +12,7 @@ namespace ReverseRegex
     {
         static void Main(string[] args)
         {
+            // FIXME: Console unicode support varies widely, do not use console
             Console.InputEncoding = Console.OutputEncoding = Encoding.Unicode;
             ConsoleHelper.Initialise();
             string? regexStr = null;
@@ -59,7 +60,7 @@ namespace ReverseRegex
                         case "regex":
                             {
                                 var regexBuilder = new StringBuilder();
-                                for (; i < args.Length; i++)
+                                for (i++; i < args.Length; i++)
                                 {
                                     if (regexBuilder.Length > 0)
                                     {
@@ -67,6 +68,7 @@ namespace ReverseRegex
                                     }
                                     regexBuilder.Append(args[i]);
                                 }
+                                regexStr = regexBuilder.ToString();
                             }
                             break;
                     }

@@ -63,22 +63,12 @@ namespace ReverseRegex
         private static IRegexNode ParseSequence(RegexParseState state, ISet<int> ends)
         {
             var nodes = new List<IRegexNode>();
-            var str = new List<int>();
-            void nextNode()
-            {
-                if (str.Count != 0)
-                {
-                    nodes.Add(new StringNode(str, state));
-                    str.Clear();
-                }
-            }
 
             while (state.MoveNextIf(ends, false))
             {
                 switch (state.Char)
                 {
                     case '\\':
-                        nextNode();
                         nodes.Add(ParseEscape(state, inCharacterClass: false));
                         break;
                     case '^':
@@ -92,36 +82,108 @@ namespace ReverseRegex
                     case '(':
                         throw new NotImplementedException("Groups/control verbs have not been implemented");
                     case '*':
+                        if(nodes.Count == 0)
+                        {
+                            throw state.Error("Cannot repeat nothing");
+                        }
+
+                        if (!nodes[^1].AllowsRepetition)
+                        {
+                            throw state.Error("Invalid repetition");
+                        }
+
+                        nodes[^1] = new RepeatNode(nodes[^1], 0, int.MaxValue);
+                        break;
                     case '+':
+                        if (nodes.Count == 0)
+                        {
+                            throw state.Error("Cannot repeat nothing");
+                        }
+
+                        if (!nodes[^1].AllowsRepetition)
+                        {
+                            if(nodes[^1] is QuantifierNode quantifierNode)
+                            {
+                                if(quantifierNode.HasModifier)
+                                {
+                                    throw state.Error("Cannot specify multiple quantifier modifiers at once");
+                                }
+                                quantifierNode.SetPossesive();
+                            }
+
+                            throw state.Error("Invalid repetition");
+                        }
+
+                        nodes[^1] = new RepeatNode(nodes[^1], 1, int.MaxValue);
+                        break;
                     case '?':
+                        if(nodes.Count == 0)
+                        {
+                            throw state.Error("Cannot make nothing optional");
+                        }
+
+                        if (!nodes[^1].AllowsRepetition)
+                        {
+                            if (nodes[^1] is QuantifierNode quantifierNode)
+                            {
+                                if (quantifierNode.HasModifier)
+                                {
+                                    throw state.Error("Cannot specify multiple quantifier modifiers at once");
+                                }
+                                quantifierNode.SetLazy();
+                            }
+
+                            throw state.Error("Invalid repetition");
+                        }
+
+                        nodes[^1] = new OptionalNode(nodes[^1]);
+                        break;
                     case '{':
-                        throw new NotImplementedException("Quantifiers have not been implemented");
+                        if (nodes.Count == 0)
+                        {
+                            throw state.Error("Cannot repeat nothing");
+                        }
+
+                        if (!nodes[^1].AllowsRepetition)
+                        {
+                            throw state.Error("Invalid repetition");
+                        }
+
+                        {
+                            int min = 0;
+                            int max = int.MaxValue;
+                            using (state.BeginMatch(new int[0], '}'))
+                            {
+                                state.RequireNext();
+                                min = state.ReadAsciiNumber(0, int.MaxValue);
+                                if (state.MoveNextIf(',', true) && state.MoveNextIf('}', false))
+                                {
+                                    max = state.ReadAsciiNumber(1, int.MaxValue);
+                                    if (max < min)
+                                    {
+                                        throw state.Error("Max cannot be less than min");
+                                    }
+                                }
+                            }
+                            nodes[^1] = new RepeatNode(nodes[^1], min, max);
+                        }
+                        break;
                     default:
-                        str.Add(state.Char);
+                        nodes.Add(new CharNode(state.Char, state));
                         break;
                 }
             }
 
-            var lastNode = new StringNode(str, state);
-            if (nodes.Count == 0)
-            {
-                return lastNode;
-            }
-
-            nodes.Add(lastNode);
-            return new SequenceNode(nodes);
+            return SequenceNode.From(nodes);
         }
 
         private static IRegexNode ParseEscape(RegexParseState state, bool inCharacterClass)
         {
-            if (!state.MoveNext())
-            {
-                throw new Exception("Expected a character that is being escaped");
-            }
+            state.RequireNext();
 
             if (!state.Char.IsLetterOrDigit())
             {
-                return new StringNode(state.Char, state);
+                return new CharNode(state.Char, state);
             }
 
             switch (state.Char)
@@ -129,45 +191,42 @@ namespace ReverseRegex
                 case 'Q':
                     return ParseLiteral(state);
                 case 'a':
-                    return new StringNode('\a', state);
+                    return new CharNode('\a', state);
                 case 'c':
                     {
                         state.RequireRange(' ', '~');
                         // Convert lowercase to upper case, and invert bit 6. See \cx in the pcre docs: http://www.rexegg.com/pcre-doc/_latestpcre2/pcre2pattern.html#SEC5
                         var ctrlC = state.Char.CodePointAsString().ToUpper().ToCodePoints()[0] ^ (1 << 6);
-                        return new StringNode(ctrlC, state);
+                        return new CharNode(ctrlC, state);
                     }
                 case 'e': // "escape" character
-                    return new StringNode(0x1B, state);
+                    return new CharNode(0x1B, state);
                 case 'f':
-                    return new StringNode('\f', state);
+                    return new CharNode('\f', state);
                 case 'n':
-                    return new StringNode('\n', state);
+                    return new CharNode('\n', state);
                 case 'r':
-                    return new StringNode('\r', state);
+                    return new CharNode('\r', state);
                 case 't':
-                    return new StringNode('\t', state);
+                    return new CharNode('\t', state);
                 case '0':
-                    return new StringNode(state.ReadOctalEscape(0, 3), state);
+                    return new CharNode(state.ReadOctalEscape(0, 3), state);
                 case 'o':
                     {
                         int value;
                         using (state.BeginMatch('{', '}'))
                         {
-                            if (!state.MoveNext())
-                            {
-                                throw new Exception(@"Empty \o{} escapes are invalid");
-                            }
+                            state.RequireNext();
                             value = state.ReadOctalEscape(1, int.MaxValue);
                         }
 
-                        return new StringNode(value, state);
+                        return new CharNode(value, state);
                     }
                 case 'x':
                     {
                         if (!state.TryPeekNext(out int c))
                         {
-                            return new StringNode(0, state);
+                            return new CharNode(0, state);
                         }
 
                         if (c == '{')
@@ -175,19 +234,16 @@ namespace ReverseRegex
                             int value;
                             using (state.BeginMatch('{', '}'))
                             {
-                                if (!state.MoveNext())
-                                {
-                                    throw new Exception(@"Empty \x{} escapes are invalid");
-                                }
+                                state.RequireNext();
                                 value = state.ReadHexEscape(1, int.MaxValue);
                             }
 
-                            return new StringNode(value, state);
+                            return new CharNode(value, state);
                         }
                         else
                         {
                             state.MoveNext(); // Guaranteed to succeed thanks to the TryPeekNext earlier
-                            return new StringNode(state.ReadHexEscape(0, 2), state);
+                            return new CharNode(state.ReadHexEscape(0, 2), state);
                         }
                     }
                 case 'N':
@@ -197,15 +253,16 @@ namespace ReverseRegex
                             int value;
                             using (state.BeginMatch("{U+".ToCodePoints(), '}'))
                             {
-                                if (!state.MoveNext() || !state.Char.IsHexDigit())
+                                state.RequireNext();
+                                if (!state.Char.IsHexDigit())
                                 {
-                                    throw new InvalidOperationException(@"Escape code \N{U+...} must contain 1 or more hex digits");
+                                    throw state.Error("Expected 1 or more hex digits");
                                 }
 
                                 value = state.ReadHexEscape(1, int.MaxValue);
                             }
 
-                            return new StringNode(value, state);
+                            return new CharNode(value, state);
                         }
                         else
                         {
@@ -215,7 +272,7 @@ namespace ReverseRegex
                 case 'b':
                     if (inCharacterClass)
                     {
-                        return new StringNode('\b', state);
+                        return new CharNode('\b', state);
                     }
                     else
                     {
@@ -266,10 +323,10 @@ namespace ReverseRegex
                         {
                             if (state.Char == '8' || state.Char == '9')
                             {
-                                return new StringNode(state.Char, state);
+                                return new CharNode(state.Char, state);
                             }
 
-                            return new StringNode(state.ReadOctalEscape(1, 3), state);
+                            return new CharNode(state.ReadOctalEscape(1, 3), state);
                         }
                         else
                         {
@@ -288,19 +345,19 @@ namespace ReverseRegex
                                 // Octal
                                 snapshot.Restore();
 
-                                return new StringNode(state.ReadOctalEscape(1, 3), state);
+                                return new CharNode(state.ReadOctalEscape(1, 3), state);
                             }
                         }
                     }
                     break;
             }
 
-            throw new Exception($"Invalid escape character {state.Char.CodePointAsString()}");
+            throw state.Error($"Invalid escape character {state.Char.CodePointAsString()}");
         }
 
         private static IRegexNode ParseLiteral(RegexParseState state)
         {
-            var chars = new List<int>();
+            var nodes = new List<IRegexNode>();
             while (state.MoveNext())
             {
                 if (state.Char == '\\' && state.MoveNextIf('E', true))
@@ -308,10 +365,10 @@ namespace ReverseRegex
                     break;
                 }
 
-                chars.Add(state.Char);
+                nodes.Add(new CharNode(state.Char, state));
             }
 
-            return new StringNode(chars, state);
+            return SequenceNode.From(nodes);
         }
         #endregion
     }

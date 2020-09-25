@@ -12,6 +12,8 @@ namespace ReverseRegex.NET.RegexNodes
         public AlternatesNode(IEnumerable<IRegexNode> nodes)
             => Nodes = nodes.ToList().AsReadOnly();
 
+        public bool AllowsRepetition => false;
+
         public IEnumerable<(int c, bool caseSensitive)> GenerateSample(Random rng)
             => Nodes[rng.Next(Nodes.Count)].GenerateSample(rng);
     }

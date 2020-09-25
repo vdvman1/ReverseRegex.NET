@@ -179,6 +179,14 @@ namespace ReverseRegex.RegexNodes
             }
         }
 
+        public void RequireNext()
+        {
+            if(!MoveNext())
+            {
+                throw new RegexParseException($"Unexpected end of regex", Index, Regex);
+            }
+        }
+
         public void RequireRange(int start, int end)
         {
             if (!MoveNext())
@@ -198,6 +206,8 @@ namespace ReverseRegex.RegexNodes
                 Require(c);
             }
         }
+
+        public Exception Error(string description) => new RegexParseException(description, Index, Regex);
 
         public IDisposable BeginMatch(int start, int end) => BeginMatch(new[] { start }, new[] { end });
         public IDisposable BeginMatch(IEnumerable<int> start, int end) => BeginMatch(start, new[] { end });
